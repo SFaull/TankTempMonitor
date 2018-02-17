@@ -14,7 +14,7 @@
                                 //   this is also how long the buzzer will beep for 
                                 //   (time on = refreshRate, time off = refreshRate) 
 
-#define SENSOR_COUNT  4
+#define SENSOR_COUNT  5 // one ambient, 4 tank 
 #define BUFFER_SIZE   10
 
 SoftwareSerial esp(10, 11); // RX, TX
@@ -75,7 +75,7 @@ void loop()
     // upload to te internet
     String cmd;
     /* send the ID of the sensor followed by the temperature (comma seperated) */
-    cmd = String(temp[0]) + "," + String(temp[1]) + "," + String(temp[2]) + "," + String(temp[3]);
+    cmd = String(temp[0]) + "," + String(temp[1]) + "," + String(temp[2]) + "," + String(temp[3]) + "," + String(temp[4]);
     esp.println(cmd);
     Serial.println(cmd);
   }
@@ -143,7 +143,7 @@ void read_temp(void)
   Serial.println("Read sensors:");
     
   // get adc reading from temp sensors  
-  for (int i=0; i>SENSOR_COUNT; i++)
+  for (int i=0; i<SENSOR_COUNT; i++)
   {
     // temp is our moving average, so...
     // subtract the temperature value thats about to be wiped from the array
