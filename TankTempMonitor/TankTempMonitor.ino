@@ -24,7 +24,7 @@ SoftwareSerial esp(10, 11); // RX, TX
 int cnt = beepDelay + (2*beepQuantity) + 1;    // global counter variable
 bool alarm_enabled = false;
 int alarm_count = 0;
-bool standby = false;
+bool Standby = false;
 
 int readArray[SENSOR_COUNT][BUFFER_SIZE] = {};
 float temp[SENSOR_COUNT] = {0,0,0,0};
@@ -48,25 +48,36 @@ void setup()
 /////////////////////////////////////main code//////////////////////////////////////////////////////////
 void loop()           
 {
-  /*
+  /* check for incoming serial message from esp */
   if (esp.available() > 0) 
   { 
     String incoming = esp.readString(); // read the incoming string:  
-    Serial.print(" I received:");   
+    Serial.print("Received: ");   
     Serial.println(incoming);
+
+    if (incoming == "ON")
+    {
+      Standby = false;
+      leds_off();
+    }
+    else if (incoming == "OFF")
+    {
+      Standby = true;
+    }
+    
   }
-  */
 
   /* Periodically read the inputs */
-  if (timerExpired(updateTimer, UPDATE_PERIOD)) // check for button press periodically
+  if (timerExpired(updateTimer, UPDATE_PERIOD))
   {
     setTimer(&updateTimer);  // reset timer
     read_temp();
     //serial_debug();
-    set_LED_state();
+    if (!Standby) // only update the LEDs if not in standby mode
+      set_LED_state();
   }
 
-  /* Periodically publish readings */
+  /* Periodically send readings to esp to be published */
   if (timerExpired(publishTimer, PUBLISH_PERIOD)) // check for button press periodically
   {
     setTimer(&publishTimer);  // reset timer
@@ -84,7 +95,7 @@ void loop()
   if (timerExpired(alarmTimer, ALARM_PERIOD)) // check for button press periodically
   {
     setTimer(&alarmTimer);  // reset timer
-    if (alarm_enabled && !standby)
+    if (alarm_enabled)
     {
       alarm_count++;
       if (alarm_count > beepDelay*2)
@@ -281,6 +292,12 @@ void alarm(void)
     alarm_count = 0;
   }
 
+}
+
+void leds_off(void)
+{
+  for (int i=2; i<=9; i++)
+    digitalWrite(i, LOW);
 }
 
 /* pass this function a pointer to an unsigned long to store the start time for the timer */
