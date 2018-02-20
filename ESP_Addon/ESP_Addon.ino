@@ -16,7 +16,6 @@
 #include <Time.h>
 #include <TimeLib.h>
 #include <Timezone.h>
-#include <SoftwareSerial.h>
 #include <stdio.h>
 #include <string.h>
 #include "config.h"
@@ -59,15 +58,12 @@ const char * ampm[] = {"AM", "PM"} ;
 unsigned long runTime         = 0,
               minuteTimer     = 0;
 
-SoftwareSerial arduino(4, 5); // RX, TX
-
 float temp[SENSOR_COUNT];
 const char *temp_str[SENSOR_COUNT];
 
 void setup() 
 {
-  Serial.begin(9600);
-  arduino.begin(9600);   // start a software serial to talk to the ESP
+  Serial.begin(38400);
   timeClient.begin();   // Start the NTP UDP client
   
   /* Setup WiFi and MQTT */ 
@@ -92,9 +88,9 @@ void loop()
   ArduinoOTA.handle();
   
   // put your main code here, to run repeatedly:
-  if (arduino.available() > 0) 
+  if (Serial.available() > 0) 
   {
-    String input = arduino.readString();
+    String input = Serial.readString();
     parseStr(input);
     publishReadings();
   }
@@ -105,15 +101,9 @@ void loop()
     getTime();
     
     if (isWakeTime())
-    {
-      arduino.println("ON");
       Serial.println("ON");
-    }
     else if(isSleepTime())
-    {
-      arduino.println("OFF");
       Serial.println("OFF");
-    }
   }
 }
 

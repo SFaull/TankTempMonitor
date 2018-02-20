@@ -36,8 +36,8 @@ unsigned long runTime         = 0,
 
 void setup()
 {
-  Serial.begin(9600);  //Start the serial connection with the computer
-  esp.begin(9600);   // start a software serial to talk to the ESP
+  Serial.begin(115200);  //Start the serial connection with the computer
+  esp.begin(38400);   // start a software serial to talk to the ESP
   init_IO();  // set up outputs and inputs
   LED_test(); // run LED test sequence
   setTimer(&updateTimer);
