@@ -17,7 +17,7 @@
 #define SENSOR_COUNT  5 // one ambient, 4 tank 
 #define BUFFER_SIZE   10
 
-SoftwareSerial esp(10, 11); // RX, TX
+SoftwareSerial esp(11, 12); // RX, TX
 
 
 // Global variables
@@ -52,8 +52,9 @@ void loop()
   if (esp.available() > 0) 
   { 
     String incoming = esp.readString(); // read the incoming string:  
-    Serial.print("Received: ");   
-    Serial.println(incoming);
+    Serial.print("ESP: [");   
+    Serial.print(incoming);
+    Serial.println("]");   
 
     if (incoming == "ON")
     {
@@ -150,8 +151,6 @@ void read_temp(void)
   static int addr = 0;
   float voltage[SENSOR_COUNT];
   static long movingTotal[SENSOR_COUNT];
-
-  Serial.println("Read sensors:");
     
   // get adc reading from temp sensors  
   for (int i=0; i<SENSOR_COUNT; i++)
@@ -174,7 +173,7 @@ void read_temp(void)
     if (i==1)
       temp[i] -= 6.3 ;  // 6 deg offset because this sensor is slightly out
 
-    Serial.println(temp[i]);
+    //Serial.println(temp[i]);
   }
 
   // increment the array address pointer (circular buffer)
