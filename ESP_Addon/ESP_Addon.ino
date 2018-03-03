@@ -20,13 +20,16 @@
 #include <string.h>
 #include "config.h"
 
-#define SENSOR_COUNT 5
-#define ONE_MINUTE   60000  // 60 seconds
+#define SENSOR_COUNT 50
+#define ONE_MINUTE   6000  // 60 
+// Define NTP propertiesseconds
 
-// Define NTP properties
 #define NTP_OFFSET   0            // In seconds
 #define NTP_INTERVAL 60 * 1000    // In miliseconds
 #define NTP_ADDRESS  "ca.pool.ntp.org"  // change this to whatever pool is closest (see ntp.org)
+
+#define WAKE_HOUR 17  // 17:00 (5PM)
+#define SLEEP_HOUR 23  // 23:00 (11PM)
 
 
 WiFiClient espClient;
@@ -44,7 +47,8 @@ TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0};         // Standard Time
 Timezone UK(BST, GMT);
 
 const char* deviceName          = "TankTemp";
-const char* MQTTtopic           = "TankTemp/";
+const char* MQTTtopic           = "TankTemp";
+const char* MQTTtopic_info      = "TankTemp/Info";
 const char* MQTTtopic_ambient   = "TankTemp/Ambient";
 const char* MQTTtopic_sensor1   = "TankTemp/Sensor1";
 const char* MQTTtopic_sensor2   = "TankTemp/Sensor2";
@@ -61,12 +65,13 @@ unsigned long runTime         = 0,
 float temp[SENSOR_COUNT];
 const char *temp_str[SENSOR_COUNT];
 
-void setup() 
+void setup()
 {
+  delay(3000); // wait some time for the arduino to boot up
   Serial.begin(38400);
   timeClient.begin();   // Start the NTP UDP client
-  
-  /* Setup WiFi and MQTT */ 
+
+  /* Setup WiFi and MQTT */
   //Local intialization. Once its business is done, there is no need to keep it around
   WiFiManager wifiManager;
   wifiManager.autoConnect(deviceName);
@@ -79,16 +84,16 @@ void setup()
   setTimer(&minuteTimer);
 }
 
-void loop() 
+void loop()
 {
   /* Check WiFi Connection */
-  if (!client.connected()) 
+  if (!client.connected())
     reconnect();
   client.loop();
   ArduinoOTA.handle();
-  
+
   // put your main code here, to run repeatedly:
-  if (Serial.available() > 0) 
+  if (Serial.available() > 0)
   {
     String input = Serial.readString();
     parseStr(input);
@@ -99,82 +104,48 @@ void loop()
   {
     setTimer(&minuteTimer);  // reset timer
     getTime();
-    
+
     if (isWakeTime())
       Serial.println("ON");
-    else if(isSleepTime())
+    else if (isSleepTime())
       Serial.println("OFF");
   }
 }
 
 void parseStr(String string)
 {
-    char charArray[50];
-    string.toCharArray(charArray, sizeof(charArray));
-    char *pt;
-    static unsigned int addr = 0;
+  char charArray[50];
+  string.toCharArray(charArray, sizeof(charArray));
+  char *pt;
+  static unsigned int addr = 0;
 
-    pt = strtok (charArray,",");
-    while (pt != NULL) {
-        temp[addr] = atof(pt);
-        pt = strtok (NULL, ",");
-        addr++;
-    }
-    addr = 0;
+  pt = strtok (charArray, ",");
+  while (pt != NULL) {
+    temp[addr] = atof(pt);
+    pt = strtok (NULL, ",");
+    addr++;
+  }
+  addr = 0;
 }
 
 
 void getTime(void)
 {
-  // update the NTP client and get the UNIX UTC timestamp 
+  // update the NTP client and get the UNIX UTC timestamp
   timeClient.update();
 
   // convert received time stamp to time_t object
   utc = timeClient.getEpochTime();
 
   local = UK.toLocal(utc);
-
-  /*
-  String date;
-  String t;
-  // now format the Time variables into strings with proper names for month, day etc
-  date += days[weekday(local)-1];
-  date += ", ";
-  date += months[month(local)-1];
-  date += " ";
-  date += day(local);
-  date += ", ";
-  date += year(local);
-
-  // format the time to 12-hour format with AM/PM and no seconds
-  t += hourFormat12(local);
-  t += ":";
-  if(minute(local) < 10)  // add a zero if minute is under 10
-    t += "0";
-  t += minute(local);
-  t += " ";
-  t += ampm[isPM(local)];
-
-  // Display the date and time
-  Serial.println("");
-  Serial.print("Local date: ");
-  Serial.print(date);
-  Serial.println("");
-  Serial.print("Local time: ");
-  Serial.println(t);
-  */
 }
 
 bool isWakeTime(void)
 {
-  bool result = false;
-  
-  if(hour(local) == 21 && minute(local) == 58)
-  {
-    result = true;
-  }
-  
-  return result;
+  if (hour(local) == WAKE_HOUR && minute(local) == 0)
+    return true;
+
+  return false;
 }
 
 void getWakeTime(void)
@@ -189,14 +160,10 @@ void setWakeTime(void)
 
 bool isSleepTime(void)
 {
-  bool result = false;
-  
-  if(hour(local) == 23 && minute(local) == 0)
-  {
-    result = true;
-  }
-  
-  return result;
+  if (hour(local) == SLEEP_HOUR && minute(local) == 0)
+    return true;
+
+  return false;
 }
 
 void getSleepTime(void)
@@ -216,7 +183,7 @@ void setTimer(unsigned long *startTime)
   *startTime = runTime;  // store the current time
 }
 
-/* call this function and pass it the variable which stores the timer start time and the desired expiry time 
+/* call this function and pass it the variable which stores the timer start time and the desired expiry time
    returns true fi timer has expired */
 bool timerExpired(unsigned long startTime, unsigned long expiryTime)
 {
@@ -230,50 +197,49 @@ bool timerExpired(unsigned long startTime, unsigned long expiryTime)
 void publishReadings(void)
 {
   /* publish */
-
   client.publish(MQTTtopic_sensor1, String(temp[0]).c_str());
   client.publish(MQTTtopic_sensor2, String(temp[1]).c_str());
   client.publish(MQTTtopic_sensor3, String(temp[2]).c_str());
   client.publish(MQTTtopic_sensor4, String(temp[3]).c_str());
   client.publish(MQTTtopic_ambient, String(temp[4]).c_str());
-
+  Serial.print("Publish successful");
 }
 
-void callback(char* topic, byte* payload, unsigned int length) 
+void callback(char* topic, byte* payload, unsigned int length)
 {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-  
+
   /* --------------- Print incoming message to serial ------------------ */
-  char input[length+1];
-  for (int i = 0; i < length; i++) 
+  char input[length + 1];
+  for (int i = 0; i < length; i++)
     input[i] = (char)payload[i];  // store payload as char array
   input[length] = '\0'; // dont forget to add a termination character
 
-  Serial.print("MQTT message received: "); 
-  Serial.println(input);    
+  //Serial.print("MQTT message received: ");
+  //Serial.println(input);
 }
 
 void reconnect() {
   // Loop until we're reconnected
-  while (!client.connected()) 
+  while (!client.connected())
   {
     Serial.print("Attempting MQTT connection... ");
     // Attempt to connect
-    if (client.connect(deviceName, MQTTuser, MQTTpassword)) 
+    if (client.connect(deviceName, MQTTuser, MQTTpassword))
     {
       Serial.println("Connected");
       // Once connected, publish an announcement...
-      //client.publish("/LampNode/Announcements", "LampNode02 connected");  // potentially not necessary
+      client.publish(MQTTtopic_info, "Connected");  // potentially not necessary
       // ... and resubscribe
       client.subscribe(MQTTtopic);
-    } 
-    else 
+    }
+    else
     {
       Serial.print("failed, rc=");
       Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
+      Serial.print(" try again in 5 seconds");
       // Wait 5 seconds before retrying
       delay(5000);
     }
