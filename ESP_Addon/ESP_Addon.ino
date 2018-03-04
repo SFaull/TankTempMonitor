@@ -48,8 +48,8 @@ Timezone UK(BST, GMT);
 
 const char* deviceName          = "TankTemp";
 const char* MQTTtopic           = "TankTemp";
-const char* MQTTtopic_info      = "TankTemp/Info";
-const char* MQTTtopic_ambient   = "TankTemp/Ambient";
+const char* MQTTtopic_comms     = "TankTemp/Comms";
+const char* MQTTtopic_pump      = "TankTemp/Pump";
 const char* MQTTtopic_sensor1   = "TankTemp/Sensor1";
 const char* MQTTtopic_sensor2   = "TankTemp/Sensor2";
 const char* MQTTtopic_sensor3   = "TankTemp/Sensor3";
@@ -65,51 +65,26 @@ unsigned long runTime         = 0,
 float temp[SENSOR_COUNT];
 const char *temp_str[SENSOR_COUNT];
 
-void setup()
+void initOTA(void)
 {
-  delay(3000); // wait some time for the arduino to boot up
-  Serial.begin(38400);
-  timeClient.begin();   // Start the NTP UDP client
-
-  /* Setup WiFi and MQTT */
-  //Local intialization. Once its business is done, there is no need to keep it around
-  WiFiManager wifiManager;
-  wifiManager.autoConnect(deviceName);
-
-  client.setServer(MQTTserver, MQTTport);
-  client.setCallback(callback);
-
-  initOTA();
-
-  setTimer(&minuteTimer);
-}
-
-void loop()
-{
-  /* Check WiFi Connection */
-  if (!client.connected())
-    reconnect();
-  client.loop();
-  ArduinoOTA.handle();
-
-  // put your main code here, to run repeatedly:
-  if (Serial.available() > 0)
-  {
-    String input = Serial.readString();
-    parseStr(input);
-    publishReadings();
-  }
-
-  if (timerExpired(minuteTimer, ONE_MINUTE))  // get the time every 60 seconds
-  {
-    setTimer(&minuteTimer);  // reset timer
-    getTime();
-
-    if (isWakeTime())
-      Serial.println("ON");
-    else if (isSleepTime())
-      Serial.println("OFF");
-  }
+  ArduinoOTA.onStart([]() {
+    Serial.println("OTA Update Started");
+  });
+  ArduinoOTA.onEnd([]() {
+    Serial.println("\nOTA Update Complete");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    Serial.printf("Error[%u]: ", error);
+    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
+    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
+    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
+    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
+    else if (error == OTA_END_ERROR) Serial.println("End Failed");
+  });
+  ArduinoOTA.begin();
 }
 
 void parseStr(String string)
@@ -201,7 +176,7 @@ void publishReadings(void)
   client.publish(MQTTtopic_sensor2, String(temp[1]).c_str());
   client.publish(MQTTtopic_sensor3, String(temp[2]).c_str());
   client.publish(MQTTtopic_sensor4, String(temp[3]).c_str());
-  client.publish(MQTTtopic_ambient, String(temp[4]).c_str());
+  client.publish(MQTTtopic_pump, String(temp[4]).c_str());
   Serial.print("Publish successful");
 }
 
@@ -219,6 +194,19 @@ void callback(char* topic, byte* payload, unsigned int length)
 
   //Serial.print("MQTT message received: ");
   //Serial.println(input);
+  
+  if (strcmp(topic, MQTTtopic_comms)==0)
+  {    
+    if(strcmp(input,"ON")==0)
+    {
+      Serial.println("ON");
+    }
+    
+    if(strcmp(input,"OFF")==0)
+    {
+      Serial.println("OFF");
+    }
+  }
 }
 
 void reconnect() {
@@ -231,7 +219,7 @@ void reconnect() {
     {
       Serial.println("Connected");
       // Once connected, publish an announcement...
-      client.publish(MQTTtopic_info, "Connected");  // potentially not necessary
+      client.publish(MQTTtopic_comms, "Connected");  // potentially not necessary
       // ... and resubscribe
       client.subscribe(MQTTtopic);
     }
@@ -246,24 +234,59 @@ void reconnect() {
   }
 }
 
-void initOTA(void)
+
+void setup()
 {
-  ArduinoOTA.onStart([]() {
-    Serial.println("OTA Update Started");
-  });
-  ArduinoOTA.onEnd([]() {
-    Serial.println("\nOTA Update Complete");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    Serial.printf("Progress: %u%%\r", (progress / (total / 100)));
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    Serial.printf("Error[%u]: ", error);
-    if (error == OTA_AUTH_ERROR) Serial.println("Auth Failed");
-    else if (error == OTA_BEGIN_ERROR) Serial.println("Begin Failed");
-    else if (error == OTA_CONNECT_ERROR) Serial.println("Connect Failed");
-    else if (error == OTA_RECEIVE_ERROR) Serial.println("Receive Failed");
-    else if (error == OTA_END_ERROR) Serial.println("End Failed");
-  });
-  ArduinoOTA.begin();
+  //delay(3000); // wait some time for the arduino to boot up
+  Serial.begin(38400);
+  timeClient.begin();   // Start the NTP UDP client
+
+  /* Setup WiFi and MQTT */
+  //Local intialization. Once its business is done, there is no need to keep it around
+  WiFiManager wifiManager;
+  wifiManager.autoConnect(deviceName);
+
+  client.setServer(MQTTserver, MQTTport);
+  client.setCallback(callback);
+
+  initOTA();
+
+  setTimer(&minuteTimer);
 }
+
+void loop()
+{
+  /* Check WiFi Connection */
+  if (!client.connected())
+    reconnect();
+  client.loop();
+  ArduinoOTA.handle();
+
+  // put your main code here, to run repeatedly:
+  if (Serial.available() > 0)
+  {
+    String input = Serial.readString();
+    parseStr(input);
+    publishReadings();
+  }
+
+  if (timerExpired(minuteTimer, ONE_MINUTE))  // get the time every 60 seconds
+  {
+    setTimer(&minuteTimer);  // reset timer
+    getTime();
+
+    if (isWakeTime())
+    {
+      Serial.println("ON");
+      client.publish(MQTTtopic_comms, "ON");
+    }
+    else if (isSleepTime())
+    {
+      Serial.println("OFF");
+      client.publish(MQTTtopic_comms, "OFF");
+    }
+  }
+}
+
+
+

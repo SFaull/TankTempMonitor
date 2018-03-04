@@ -58,12 +58,14 @@ void loop()
 
     if (incoming == "ON")
     {
+      Serial.println("LEDs ENABLED");   
       Standby = false;
-      leds_off();
     }
     else if (incoming == "OFF")
     {
+      Serial.println("LEDs DISABLED");  
       Standby = true;
+      leds_off();
     }
     
   }
