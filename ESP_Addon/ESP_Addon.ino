@@ -47,7 +47,7 @@ TimeChangeRule GMT = {"GMT", Last, Sun, Oct, 2, 0};         // Standard Time
 Timezone UK(BST, GMT);
 
 const char* deviceName          = "TankTemp";
-const char* MQTTtopic           = "TankTemp";
+const char* MQTTtopic           = "TankTemp/#";
 const char* MQTTtopic_comms     = "TankTemp/Comms";
 const char* MQTTtopic_pump      = "TankTemp/Pump";
 const char* MQTTtopic_sensor1   = "TankTemp/Sensor1";
@@ -182,9 +182,9 @@ void publishReadings(void)
 
 void callback(char* topic, byte* payload, unsigned int length)
 {
-  Serial.print("Message arrived [");
-  Serial.print(topic);
-  Serial.print("] ");
+  //Serial.print("Message arrived [");
+  //Serial.print(topic);
+  //Serial.print("] ");
 
   /* --------------- Print incoming message to serial ------------------ */
   char input[length + 1];
@@ -199,12 +199,12 @@ void callback(char* topic, byte* payload, unsigned int length)
   {    
     if(strcmp(input,"ON")==0)
     {
-      Serial.println("ON");
+      Serial.print("ON");
     }
     
     if(strcmp(input,"OFF")==0)
     {
-      Serial.println("OFF");
+      Serial.print("OFF");
     }
   }
 }
@@ -221,7 +221,7 @@ void reconnect() {
       // Once connected, publish an announcement...
       client.publish(MQTTtopic_comms, "Connected");  // potentially not necessary
       // ... and resubscribe
-      client.subscribe(MQTTtopic);
+      client.subscribe(MQTTtopic_comms);
     }
     else
     {
@@ -277,12 +277,12 @@ void loop()
 
     if (isWakeTime())
     {
-      Serial.println("ON");
+      Serial.print("ON");
       client.publish(MQTTtopic_comms, "ON");
     }
     else if (isSleepTime())
     {
-      Serial.println("OFF");
+      Serial.print("OFF");
       client.publish(MQTTtopic_comms, "OFF");
     }
   }
