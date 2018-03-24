@@ -20,6 +20,10 @@
 #include <string.h>
 #include "config.h"
 
+#include <SoftwareSerial.h>
+
+SoftwareSerial arduino(3, 1); // RX, TX
+
 #define SENSOR_COUNT 50
 #define ONE_MINUTE   6000  // 60 
 // Define NTP propertiesseconds
@@ -54,6 +58,7 @@ const char* MQTTtopic_sensor1   = "TankTemp/Sensor1";
 const char* MQTTtopic_sensor2   = "TankTemp/Sensor2";
 const char* MQTTtopic_sensor3   = "TankTemp/Sensor3";
 const char* MQTTtopic_sensor4   = "TankTemp/Sensor4";
+const char* MQTTtopic_rawdata   = "TankTemp/RawData";
 
 const char * days[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"} ;
 const char * months[] = {"Jan", "Feb", "Mar", "Apr", "May", "June", "July", "Aug", "Sep", "Oct", "Nov", "Dec"} ;
@@ -64,6 +69,7 @@ unsigned long runTime         = 0,
 
 float temp[SENSOR_COUNT];
 const char *temp_str[SENSOR_COUNT];
+String receivedStr;
 
 void initOTA(void)
 {
@@ -172,19 +178,20 @@ bool timerExpired(unsigned long startTime, unsigned long expiryTime)
 void publishReadings(void)
 {
   /* publish */
+  client.publish(MQTTtopic_rawdata, receivedStr.c_str());
   client.publish(MQTTtopic_sensor1, String(temp[0]).c_str());
   client.publish(MQTTtopic_sensor2, String(temp[1]).c_str());
   client.publish(MQTTtopic_sensor3, String(temp[2]).c_str());
   client.publish(MQTTtopic_sensor4, String(temp[3]).c_str());
   client.publish(MQTTtopic_pump, String(temp[4]).c_str());
-  Serial.print("Publish successful");
+  arduino.print("Publish successful");
 }
 
 void callback(char* topic, byte* payload, unsigned int length)
 {
-  //Serial.print("Message arrived [");
-  //Serial.print(topic);
-  //Serial.print("] ");
+  Serial.print("Message arrived [");
+  Serial.print(topic);
+  Serial.print("] ");
 
   /* --------------- Print incoming message to serial ------------------ */
   char input[length + 1];
@@ -192,19 +199,19 @@ void callback(char* topic, byte* payload, unsigned int length)
     input[i] = (char)payload[i];  // store payload as char array
   input[length] = '\0'; // dont forget to add a termination character
 
-  //Serial.print("MQTT message received: ");
-  //Serial.println(input);
+  Serial.print("MQTT message received: ");
+  Serial.println(input);
   
   if (strcmp(topic, MQTTtopic_comms)==0)
   {    
     if(strcmp(input,"ON")==0)
     {
-      Serial.print("ON");
+      arduino.print("ON");
     }
     
     if(strcmp(input,"OFF")==0)
     {
-      Serial.print("OFF");
+      arduino.print("OFF");
     }
   }
 }
@@ -238,7 +245,7 @@ void reconnect() {
 void setup()
 {
   //delay(3000); // wait some time for the arduino to boot up
-  Serial.begin(38400);
+  arduino.begin(38400);
   timeClient.begin();   // Start the NTP UDP client
 
   /* Setup WiFi and MQTT */
@@ -263,10 +270,11 @@ void loop()
   ArduinoOTA.handle();
 
   // put your main code here, to run repeatedly:
-  if (Serial.available() > 0)
+  if (arduino.available() > 0)
   {
-    String input = Serial.readString();
-    parseStr(input);
+    receivedStr = ""; // clear old string
+    receivedStr = arduino.readString();
+    parseStr(receivedStr);
     publishReadings();
   }
 
@@ -277,12 +285,12 @@ void loop()
 
     if (isWakeTime())
     {
-      Serial.print("ON");
+      arduino.print("ON");
       client.publish(MQTTtopic_comms, "ON");
     }
     else if (isSleepTime())
     {
-      Serial.print("OFF");
+      arduino.print("OFF");
       client.publish(MQTTtopic_comms, "OFF");
     }
   }

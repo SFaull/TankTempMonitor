@@ -66,6 +66,7 @@ void loop()
       Serial.println("LEDs DISABLED");  
       Standby = true;
       leds_off();
+      digitalWrite(13, LOW);
     }
     
   }
@@ -77,7 +78,10 @@ void loop()
     read_temp();
     //serial_debug();
     if (!Standby) // only update the LEDs if not in standby mode
+    {
+      digitalWrite(13, HIGH);
       set_LED_state();
+    }
   }
 
   /* Periodically send readings to esp to be published */
@@ -120,6 +124,7 @@ void init_IO(void)
   pinMode(8, OUTPUT);   //LED D Blue
   pinMode(9, OUTPUT);   //LED D Red
   pinMode(10, OUTPUT);  //Buzzer
+  pinMode(13, OUTPUT);  //Buzzer
 }
 
 void LED_test(void)
