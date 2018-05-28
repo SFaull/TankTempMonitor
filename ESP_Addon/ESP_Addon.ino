@@ -25,7 +25,7 @@
 SoftwareSerial arduino(3, 1); // RX, TX
 
 #define SENSOR_COUNT 50
-#define ONE_MINUTE   6000  // 60 
+#define HALF_MINUTE   30000  // 10 
 // Define NTP propertiesseconds
 
 #define NTP_OFFSET   0            // In seconds
@@ -156,7 +156,7 @@ void publishReadings(void)
   client.publish(MQTTtopic_sensor3, String(temp[2]).c_str());
   client.publish(MQTTtopic_sensor4, String(temp[3]).c_str());
   client.publish(MQTTtopic_pump, String(temp[4]).c_str());
-  arduino.print("Publish successful");
+  //arduino.print("Publish successful");
 }
 
 void callback(char* topic, byte* payload, unsigned int length)
@@ -178,12 +178,12 @@ void callback(char* topic, byte* payload, unsigned int length)
   {    
     if(strcmp(input,"ON")==0)
     {
-      arduino.print("ON");
+      arduino.println("ON");
     }
     
     if(strcmp(input,"OFF")==0)
     {
-      arduino.print("OFF");
+      arduino.println("OFF");
     }
   }
 }
@@ -250,14 +250,14 @@ void loop()
     publishReadings();
   }
 
-  if (timerExpired(minuteTimer, ONE_MINUTE))  // get the time every 60 seconds
+  if (timerExpired(minuteTimer, HALF_MINUTE))  // get the time every 60 seconds
   {
     setTimer(&minuteTimer);  // reset timer
     getTime();  // get current time
     if (isWakeTime()) // if the arduino should be awake
-      arduino.print("ON");  // tell it to be awake
+      arduino.println("ON");  // tell it to be awake
     else
-      arduino.print("OFF");
+      arduino.println("OFF");
   }
 }
 
