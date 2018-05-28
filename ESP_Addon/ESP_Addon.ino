@@ -71,8 +71,6 @@ float temp[SENSOR_COUNT];
 const char *temp_str[SENSOR_COUNT];
 String receivedStr;
 
-bool arduino_standby;
-
 void initOTA(void)
 {
   ArduinoOTA.onStart([]() {
@@ -131,34 +129,6 @@ bool isWakeTime(void)
   return false;
 }
 
-void getWakeTime(void)
-{
-  // read from EEPROM
-}
-
-void setWakeTime(void)
-{
-  // save to EEPROM
-}
-
-bool changeOfState(void)
-{
-  if ((hour(local) == SLEEP_HOUR && minute(local) == 0) || (hour(local) == WAKE_HOUR && minute(local) == 0) )
-    return true;
-
-  return false;
-}
-
-void getSleepTime(void)
-{
-  // read from EEPROM
-}
-
-void setSleepTime(void)
-{
-  // save to EEPROM
-}
-
 /* pass this function a pointer to an unsigned long to store the start time for the timer */
 void setTimer(unsigned long *startTime)
 {
@@ -189,28 +159,6 @@ void publishReadings(void)
   arduino.print("Publish successful");
 }
 
-bool getStanby(void)  // returns 1 if unsuccessful
-{
-  arduino.print("STANDBY?");
-  delay(500); // wait a second for a response
-  
-    // put your main code here, to run repeatedly:
-  if (arduino.available() > 0)
-  {
-    String incoming = ""; // clear old string
-    incoming = arduino.readString();
-    if (strcmp(incoming, "ON") == 0)
-      arduino_standby = false;
-    else if (strcmp(incoming, "OFF") == 0)
-      arduino_standby = true;
-    else
-      return 0; // failed
-    return 1; // success
-  }
-  else
-    return 0; // failed
-}
-
 void callback(char* topic, byte* payload, unsigned int length)
 {
   Serial.print("Message arrived [");
@@ -225,7 +173,7 @@ void callback(char* topic, byte* payload, unsigned int length)
 
   Serial.print("MQTT message received: ");
   Serial.println(input);
-  
+
   if (strcmp(topic, MQTTtopic_comms)==0)
   {    
     if(strcmp(input,"ON")==0)
@@ -283,13 +231,6 @@ void setup()
   initOTA();
 
   setTimer(&minuteTimer);
-
-  // keep polling for the standby state until something is returned
-  bool ret = 0;
-  do 
-  {
-    ret = getStandby();
-  } while (!ret);
 }
 
 void loop()
@@ -312,43 +253,11 @@ void loop()
   if (timerExpired(minuteTimer, ONE_MINUTE))  // get the time every 60 seconds
   {
     setTimer(&minuteTimer);  // reset timer
-    getTime();
-
-    if (changeOfState())  // its transition time
-    {
-      // keep polling for the standby state until something is returned
-      bool ret = 0;
-      do 
-      {
-        ret = getStandby(); // this will set the internal standby state falg
-      } while (!ret);
-    }
-
-    // check the flag and the time to see if we need to change state
-    if (isWakeTime() && arduino_standby)
-    {
-      arduino.print("ON");
-      client.publish(MQTTtopic_comms, "ON");
-
-      // keep polling for the standby state until something is returned
-      bool ret = 0;
-      do 
-      {
-        ret = getStandby(); // this will set the internal standby state falg
-      } while (!ret);
-    }
-    else if (!isWakeTime() && !arduino_standby)
-    {
+    getTime();  // get current time
+    if (isWakeTime()) // if the arduino should be awake
+      arduino.print("ON");  // tell it to be awake
+    else
       arduino.print("OFF");
-      client.publish(MQTTtopic_comms, "OFF");
-
-      // keep polling for the standby state until something is returned
-      bool ret = 0;
-      do 
-      {
-        ret = getStandby(); // this will set the internal standby state falg
-      } while (!ret);
-    }
   }
 }
 

@@ -1,6 +1,7 @@
 // Tank temp monitor for Arduino Nano - Sam Faull
 
 #include <SoftwareSerial.h>
+#include <SerialCommand.h>
 
 /* ADJUSTABLE PARAMETERS, please alter the values in this section to your preference */
 #define lowerLimit      25   // temp (in deg C) at which LEDs go blue
@@ -17,8 +18,9 @@
 #define SENSOR_COUNT  5 // one ambient, 4 tank 
 #define BUFFER_SIZE   10
 
-SoftwareSerial esp(11, 12); // RX, TX
+SoftwareSerial esp = SoftwareSerial(11, 12); // RX, TX
 
+SerialCommand sCmd(esp);     // The demo SerialCommand object
 
 // Global variables
 int cnt = beepDelay + (2*beepQuantity) + 1;    // global counter variable
@@ -38,38 +40,24 @@ void setup()
 {
   Serial.begin(115200);  //Start the serial connection with the computer
   esp.begin(38400);   // start a software serial to talk to the ESP
+
+    // Setup callbacks for SerialCommand commands
+  sCmd.addCommand("ON",    cmdOn);          // Turns LED on
+  sCmd.addCommand("OFF",   cmdOff);         // Turns LED off
+  sCmd.addDefaultHandler(unrecognized);  // Handler for command that isn't matched  (says "What?") 
+  
   init_IO();  // set up outputs and inputs
   LED_test(); // run LED test sequence
   setTimer(&updateTimer);
-  setTimer(&publishTimer);
   Serial.println("Ready...");
 }    
                    
 /////////////////////////////////////main code//////////////////////////////////////////////////////////
 void loop()           
 {
-  /* check for incoming serial message from esp */
-  if (esp.available() > 0) 
-  { 
-    String incoming = esp.readString(); // read the incoming string:  
-    Serial.print("ESP: [");   
-    Serial.print(incoming);
-    Serial.println("]");   
 
-    if (incoming == "ON")
-    {
-      Serial.println("LEDs ENABLED");   
-      Standby = false;
-    }
-    else if (incoming == "OFF")
-    {
-      Serial.println("LEDs DISABLED");  
-      Standby = true;
-      leds_off();
-      digitalWrite(13, LOW);
-    }
-    
-  }
+  sCmd.readSerial();     // We don't do much, just process serial commands
+
 
   /* Periodically read the inputs */
   if (timerExpired(updateTimer, UPDATE_PERIOD))
@@ -84,21 +72,7 @@ void loop()
     }
   }
 
-  /* Periodically send readings to esp to be published */
-  if (timerExpired(publishTimer, PUBLISH_PERIOD)) // check for button press periodically
-  {
-    setTimer(&publishTimer);  // reset timer
-    
-    Serial.println("Publish temperature");
-    // upload to te internet
-    String cmd;
-    /* send the ID of the sensor followed by the temperature (comma seperated) */
-    cmd = String(temp[0]) + "," + String(temp[1]) + "," + String(temp[2]) + "," + String(temp[3]) + "," + String(temp[4]);
-    esp.println(cmd);
-    Serial.println(cmd);
-  }
-
-  /* Periodically publish readings */
+  /* Periodically check if alarm should be enabled*/
   if (timerExpired(alarmTimer, ALARM_PERIOD)) // check for button press periodically
   {
     setTimer(&alarmTimer);  // reset timer
@@ -324,3 +298,36 @@ bool timerExpired(unsigned long startTime, unsigned long expiryTime)
     return false;
 }
 
+void cmdOn(void)
+{
+  Serial.println("LEDs ENABLED");   
+  Standby = false;
+  publishReadings();
+}
+
+void cmdOff(void)
+{
+  Serial.println("LEDs DISABLED");  
+  Standby = true;
+  leds_off();
+  digitalWrite(13, LOW);
+  publishReadings();
+}
+
+void publishReadings(void)
+{
+  Serial.println("Publish temperature");
+  // upload to te internet
+  String cmd;
+  /* send the ID of the sensor followed by the temperature (comma seperated) */
+  cmd = String(temp[0]) + "," + String(temp[1]) + "," + String(temp[2]) + "," + String(temp[3]) + "," + String(temp[4]);
+  esp.println(cmd);
+  Serial.println(cmd);
+}
+
+// This gets set as the default handler, and gets called when no other command matches. 
+void unrecognized()
+{
+  Serial.println("What?"); 
+  Serial.println("(softserial) What?"); 
+}
